@@ -2,29 +2,33 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LAN Encrypted Chat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Secure LAN Chat</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.1/socket.io.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 
     <style>
         :root {
             --bg-color: #121212;
             --chat-bg: #1e1e1e;
-            --accent: #00e676; /* Neon Green/Bitchat style */
+            --accent: #00e676;
             --text-main: #ffffff;
             --text-dim: #a0a0a0;
         }
+
+        * { box-sizing: border-box; }
 
         body {
             background-color: var(--bg-color);
             color: var(--text-main);
             font-family: 'Inter', sans-serif;
             margin: 0;
+            padding: 0;
+            height: 100vh; /* Fallback */
+            height: 100dvh; /* Dynamic height for mobile */
             display: flex;
             flex-direction: column;
-            height: 100vh;
             overflow: hidden;
         }
 
@@ -37,48 +41,77 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            z-index: 10;
+            z-index: 100;
+            padding: 20px;
+        }
+
+        h1 { margin-bottom: 2rem; color: var(--accent); letter-spacing: -1px; }
+
+        .input-group {
+            width: 100%;
+            max-width: 320px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
         }
 
         input {
             background: var(--chat-bg);
             border: 1px solid #333;
-            padding: 15px;
+            padding: 16px;
             color: white;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            width: 80%;
-            max-width: 300px;
+            border-radius: 12px;
+            font-size: 16px; /* Prevents iOS zoom */
             outline: none;
-            transition: border-color 0.3s;
+            width: 100%;
         }
 
         input:focus { border-color: var(--accent); }
 
-        button {
+        .btn-primary {
             background: var(--accent);
             border: none;
-            padding: 15px 30px;
+            padding: 16px;
             color: #000;
             font-weight: bold;
             border-radius: 30px;
             cursor: pointer;
-            transition: transform 0.2s;
+            font-size: 1rem;
+            margin-top: 10px;
         }
 
-        button:active { transform: scale(0.95); }
+        /* Main Chat UI */
+        #chat-ui {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+        }
 
-        /* Chat Interface */
         header {
-            padding: 20px;
+            padding: 15px 20px;
+            background: rgba(18, 18, 18, 0.95);
             border-bottom: 1px solid #333;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
 
-        h2 { margin: 0; font-size: 1.2rem; }
-        .status-dot { height: 10px; width: 10px; background: var(--accent); border-radius: 50%; display: inline-block; margin-right: 8px; }
+        .header-info h2 { margin: 0; font-size: 1rem; }
+        .status-dot { height: 8px; width: 8px; background: var(--accent); border-radius: 50%; display: inline-block; margin-right: 6px; }
+
+        .btn-leave {
+            background: #ff4444;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
 
         #messages {
             flex: 1;
@@ -86,18 +119,17 @@
             padding: 20px;
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 12px;
+            -webkit-overflow-scrolling: touch;
         }
 
-        /* Message Bubbles */
         .message {
-            max-width: 75%;
-            padding: 12px 18px;
+            max-width: 80%;
+            padding: 12px 16px;
             border-radius: 18px;
             font-size: 0.95rem;
             line-height: 1.4;
             position: relative;
-            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             word-wrap: break-word;
         }
 
@@ -115,6 +147,14 @@
             border-bottom-left-radius: 4px;
         }
 
+        .system-msg {
+            align-self: center;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin: 10px 0;
+            text-align: center;
+        }
+
         .meta {
             font-size: 0.7rem;
             margin-bottom: 4px;
@@ -122,144 +162,191 @@
             opacity: 0.7;
         }
 
-        .system-msg {
-            align-self: center;
-            font-size: 0.8rem;
-            color: var(--text-dim);
-            margin: 10px 0;
-        }
-
-        /* Input Area */
-        form {
-            padding: 20px;
+        /* Input Area - Fixed at bottom */
+        #input-area {
+            padding: 15px; /* Adds safe area padding for modern phones */
             background: var(--chat-bg);
+            border-top: 1px solid #333;
             display: flex;
             gap: 10px;
+            position: sticky;
+            bottom: 0;
         }
 
-        form input { margin: 0; flex: 1; }
-
-        @keyframes popIn {
-            from { opacity: 0; transform: translateY(20px) scale(0.9); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
+        #input-area input {
+            background: #121212;
+            margin: 0;
+            flex: 1;
         }
+
+        #input-area button {
+            background: var(--accent);
+            color: black;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-weight: bold;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
     </style>
 </head>
 <body>
 
     <div id="setup-screen">
-        <h1 style="margin-bottom: 30px;">LAN Chat</h1>
-        <input type="text" id="username-input" placeholder="Enter Username (Optional)" maxlength="15">
-        <input type="password" id="room-key" placeholder="Enter Room Key (Encryption)" value="secret123">
-        <button onclick="joinChat()">Join Network</button>
-        <p style="font-size: 0.8rem; color: #666; margin-top: 20px;">Use the same Room Key on all devices.</p>
+        <h1>LAN Chat <span style="font-size:0.5em; color:#666"></span></h1>
+        <div class="input-group">
+            <input type="text" id="username-input" placeholder="Enter Username" maxlength="15">
+            <input type="password" id="room-key" placeholder="Enter Room Name (e.g. 'Chill')" value="">
+            <div style="font-size: 0.7rem; color: #666; text-align: center;">
+                🔒 Secure: Only people on this Wi-Fi can join this room.
+            </div>
+            <p id="status-msg" style="font-size: 0.8rem; color: #666; margin: 10px 0; font-family: monospace;">
+                Detecting Network...
+            </p>
+            <button class="btn-primary" id="join-btn" onclick="initChat()">Join Room</button>
+        </div>
     </div>
 
-    <div id="chat-ui" style="display: none; height: 100%; flex-direction: column;">
+    <div id="chat-ui">
         <header>
-            <div><span class="status-dot"></span><span id="display-name">Anon</span></div>
-            <div style="font-size: 0.8rem; color: #666;">E2E Encrypted</div>
+            <div class="header-info">
+                <div><span class="status-dot"></span><span id="display-name">Anon</span></div>
+                <div style="font-size: 0.75rem; color: #888;" id="room-display">Room: ...</div>
+            </div>
+            <button class="btn-leave" onclick="leaveRoom()">Leave</button>
         </header>
 
         <div id="messages"></div>
 
-        <form id="chat-form">
-            <input id="msg-input" autocomplete="off" placeholder="Type a message..." />
-            <button type="button" onclick="sendMessage()">Send</button>
-        </form>
+        <div id="input-area">
+            <input id="msg-input" autocomplete="off" placeholder="Type..." enterkeyhint="send" />
+            <button type="button" onclick="sendMessage()">></button>
+        </div>
     </div>
 
     <script>
         const socket = io();
         let username = 'Anon';
-        let secretKey = ''; 
+        let currentRoomId = ''; 
 
-        // Join the chat
-        function joinChat() {
-            const userIn = document.getElementById('username-input').value;
-            const keyIn = document.getElementById('room-key').value;
+        // 1. Fetch IP and Process it (The "Subnet" Logic)
+        let networkID = 'loading...';
+        
+        fetch('https://api.ipify.org?format=json')
+            .then(response => response.json())
+            .then(data => {
+                const fullIP = data.ip; // e.g., 103.45.12.89
+                
+                // LOGIC: Remove the last section of the IP
+                // This converts "103.45.12.89" -> "103.45.12"
+                const ipParts = fullIP.split('.');
+                if (ipParts.length === 4) {
+                    ipParts.pop(); // Remove the last number
+                    networkID = ipParts.join('.'); // Join back together
+                } else {
+                    networkID = fullIP; // Fallback
+                }
+                
+                console.log("Your Network Subnet:", networkID);
+                document.getElementById('status-msg').innerText = `Network Detected: ${networkID}.x`;
+                document.getElementById('status-msg').style.color = '#00e676';
+            })
+            .catch(err => {
+                console.log("IP fetch failed");
+                document.getElementById('status-msg').innerText = "Network Error: Could not detect Wi-Fi";
+                document.getElementById('status-msg').style.color = 'red';
+            });
 
-            if (!keyIn) return alert("You must set a Room Key for encryption!");
+        function initChat() {
+            const userIn = document.getElementById('username-input').value.trim();
+            const roomNameIn = document.getElementById('room-key').value.trim();
+
+            if (!roomNameIn) return alert("Please enter a Room Name!");
+            if (networkID === 'loading...') return alert("Please wait, detecting network...");
 
             username = userIn || 'Anon';
-            secretKey = keyIn; // In production, never store this in plain variable scope if possible
+            
+            // 2. Create the Room ID based on the Subnet
+            // Everyone on the same Wifi will generate the SAME 'networkID'
+            currentRoomId = `${networkID}-${roomNameIn}`;
 
+            // Switch UI
             document.getElementById('setup-screen').style.display = 'none';
             document.getElementById('chat-ui').style.display = 'flex';
             document.getElementById('display-name').innerText = username;
+            document.getElementById('room-display').innerText = `Room: ${roomNameIn}`;
 
-            socket.emit('join', username);
+            // Join
+            socket.emit('join_room', { username, room: currentRoomId });
         }
 
-        // Send Message
+        function leaveRoom() {
+            window.location.reload();
+        }
+
         function sendMessage() {
             const input = document.getElementById('msg-input');
-            const plaintext = input.value;
+            const plaintext = input.value.trim();
             if (!plaintext) return;
 
-            // 1. Encrypt locally
-            const ciphertext = CryptoJS.AES.encrypt(plaintext, secretKey).toString();
+            // Use the room name as the encryption password
+            const key = document.getElementById('room-key').value.trim();
+            const ciphertext = CryptoJS.AES.encrypt(plaintext, key).toString();
 
-            // 2. Send to server (Server never sees plaintext)
             const payload = {
+                room: currentRoomId, 
                 user: username,
                 text: ciphertext,
                 timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
             };
 
             socket.emit('chat_message', payload);
-            
-            // 3. Display my own message immediately
-            addMessageToUI(payload, 'sent', plaintext); // Pass plaintext to UI
+            addMessageToUI(payload, 'sent', plaintext);
             input.value = '';
+            input.focus();
         }
 
         // Receive Message
         socket.on('chat_message', (data) => {
-            // 1. Try to Decrypt
+            const key = document.getElementById('room-key').value.trim();
             try {
-                const bytes = CryptoJS.AES.decrypt(data.text, secretKey);
+                const bytes = CryptoJS.AES.decrypt(data.text, key);
                 const originalText = bytes.toString(CryptoJS.enc.Utf8);
-
+                
                 if (originalText) {
                     addMessageToUI(data, 'received', originalText);
-                } else {
-                    // Decryption failed (Wrong Room Key)
-                    addMessageToUI({...data, text: "Unable to decrypt message"}, 'received', null, true);
                 }
-            } catch (e) {
-                console.error("Decryption error", e);
+            } catch (e) { 
+                // Decryption failed silently 
             }
         });
 
+        // System Messages (Join/Leave)
         socket.on('system_message', (data) => {
+            // Check if we are alone? 
+            // The server sends "User joined". 
+            // If this message comes, it means someone successfully matched our IP logic!
             const div = document.createElement('div');
             div.className = 'system-msg';
             div.innerText = data.text;
             document.getElementById('messages').appendChild(div);
         });
 
-        // UI Helper
-        function addMessageToUI(data, type, decryptedText, isError=false) {
+        function addMessageToUI(data, type, text) {
             const container = document.getElementById('messages');
             const div = document.createElement('div');
-            
             div.className = `message ${type}`;
-            if(isError) div.style.backgroundColor = '#333';
-
-            div.innerHTML = `
-                <span class="meta">${data.user} • ${data.timestamp}</span>
-                ${decryptedText || '<i>Encrypted Message</i>'}
-            `;
-            
+            div.innerHTML = `<span class="meta">${data.user}</span>${text}`;
             container.appendChild(div);
             container.scrollTop = container.scrollHeight;
         }
 
-        // Handle Enter key
-        document.getElementById('chat-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            sendMessage();
+        // Enter key
+        document.getElementById('msg-input').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') sendMessage();
         });
     </script>
 </body>

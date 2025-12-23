@@ -1,34 +1,46 @@
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
-const io = require('socket.io')(http);
+const io = require('socket.io')(http, {
+    cors: { origin: "*" }
+});
 const path = require('path');
 
-// Serve static files from the 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
 
 io.on('connection', (socket) => {
-    // When a user joins
-    socket.on('join', (username) => {
-        io.emit('system_message', {
-            text: `${username || 'Anon'} has joined the channel.`,
+    
+    // 1. Join a specific Room
+    socket.on('join_room', ({ username, room }) => {
+        // The user effectively joins "IP-RoomName"
+        socket.join(room);
+        
+        // Welcome message only to the user
+        socket.emit('system_message', {
+            text: `Connected to encrypted channel: ${room}`,
+            type: 'system'
+        });
+
+        // Notify others IN THAT ROOM only
+        socket.to(room).emit('system_message', {
+            text: `${username} has joined the chat.`,
             type: 'join'
         });
     });
 
-    // When a message is sent
+    // 2. Handle Messages
     socket.on('chat_message', (data) => {
-        // Broadcast the ENCRYPTED data to everyone else
-        socket.broadcast.emit('chat_message', data);
+        // Broadcast ONLY to specific room
+        // data.room is passed from client
+        socket.to(data.room).emit('chat_message', data);
     });
 
     socket.on('disconnect', () => {
-        // Optional: Handle disconnects
+        // Handle disconnect if needed
     });
 });
 
-// Listen on all network interfaces (0.0.0.0) so other devices can connect
-const PORT = 3000;
-http.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running. Connect other devices to http://YOUR_IP_ADDRESS:${PORT}`);
+const PORT = process.env.PORT || 3000;
+http.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
