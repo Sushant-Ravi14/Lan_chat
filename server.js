@@ -2,7 +2,8 @@ const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http, {
-    cors: { origin: "*" }
+    cors: { origin: "*" },
+    maxHttpBufferSize: 1e7 // Increase limit to 10MB for images/audio
 });
 const path = require('path');
 
@@ -10,34 +11,31 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 io.on('connection', (socket) => {
     
-    // 1. Join a specific Room
     socket.on('join_room', ({ username, room }) => {
-        // The user effectively joins "IP-RoomName"
         socket.join(room);
-        
-        // Welcome message only to the user
-        socket.emit('system_message', {
-            text: `Connected to encrypted channel: ${room}`,
-            type: 'system'
-        });
-
-        // Notify others IN THAT ROOM only
         socket.to(room).emit('system_message', {
-            text: `${username} has joined the chat.`,
+            text: `${username} joined.`,
             type: 'join'
         });
     });
 
-    // 2. Handle Messages
+    // 1. General Message Handler (Text, Image, Audio)
     socket.on('chat_message', (data) => {
-        // Broadcast ONLY to specific room
-        // data.room is passed from client
         socket.to(data.room).emit('chat_message', data);
     });
 
-    socket.on('disconnect', () => {
-        // Handle disconnect if needed
+    // 2. Typing Indicator
+    socket.on('typing', (data) => {
+        socket.to(data.room).emit('typing', data);
     });
+
+    // 3. Delete Message Event
+    socket.on('delete_message', (data) => {
+        // Broadcast to everyone in room to remove this specific ID
+        io.to(data.room).emit('delete_message', data.id); 
+    });
+
+    socket.on('disconnect', () => {});
 });
 
 const PORT = process.env.PORT || 3000;

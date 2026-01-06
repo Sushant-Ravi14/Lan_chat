@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Secure LAN Chat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Secure LAN Chat Ultra</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
     <style>
         :root {
@@ -14,340 +15,291 @@
             --chat-bg: #1e1e1e;
             --accent: #00e676;
             --text-main: #ffffff;
-            --text-dim: #a0a0a0;
+            --incoming: #2a2a2a;
         }
-
         * { box-sizing: border-box; }
-
         body {
             background-color: var(--bg-color);
             color: var(--text-main);
             font-family: 'Inter', sans-serif;
-            margin: 0;
-            padding: 0;
-            height: 100vh; /* Fallback */
-            height: 100dvh; /* Dynamic height for mobile */
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
+            margin: 0; height: 100dvh; display: flex; flex-direction: column; overflow: hidden;
         }
 
-        /* Setup Screen */
+        /* --- SETUP SCREEN --- */
         #setup-screen {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--bg-color);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-            padding: 20px;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-color); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 100;
         }
-
-        h1 { margin-bottom: 2rem; color: var(--accent); letter-spacing: -1px; }
-
-        .input-group {
-            width: 100%;
-            max-width: 320px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
         input {
-            background: var(--chat-bg);
-            border: 1px solid #333;
-            padding: 16px;
-            color: white;
-            border-radius: 12px;
-            font-size: 16px; /* Prevents iOS zoom */
+            background: var(--chat-bg); border: 1px solid #333; padding: 15px;
+            color: white; border-radius: 10px; width: 300px; margin-bottom: 10px;
             outline: none;
-            width: 100%;
         }
-
-        input:focus { border-color: var(--accent); }
-
         .btn-primary {
-            background: var(--accent);
-            border: none;
-            padding: 16px;
-            color: #000;
-            font-weight: bold;
-            border-radius: 30px;
-            cursor: pointer;
-            font-size: 1rem;
-            margin-top: 10px;
+            background: var(--accent); border: none; padding: 15px 40px;
+            border-radius: 30px; font-weight: bold; cursor: pointer;
         }
 
-        /* Main Chat UI */
-        #chat-ui {
-            display: none;
-            flex-direction: column;
-            height: 100%;
-            width: 100%;
-        }
-
+        /* --- CHAT UI --- */
+        #chat-ui { display: none; flex-direction: column; height: 100%; }
         header {
-            padding: 15px 20px;
-            background: rgba(18, 18, 18, 0.95);
+            padding: 15px; background: rgba(30,30,30,0.95);
+            display: flex; justify-content: space-between; align-items: center;
             border-bottom: 1px solid #333;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 10;
         }
-
-        .header-info h2 { margin: 0; font-size: 1rem; }
-        .status-dot { height: 8px; width: 8px; background: var(--accent); border-radius: 50%; display: inline-block; margin-right: 6px; }
-
-        .btn-leave {
-            background: #ff4444;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            cursor: pointer;
-        }
+        .btn-leave { background: #ff4444; color: white; border: none; padding: 5px 15px; border-radius: 20px; cursor: pointer;}
 
         #messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            -webkit-overflow-scrolling: touch;
+            flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px;
         }
 
+        /* --- MESSAGE BUBBLES --- */
         .message {
-            max-width: 80%;
-            padding: 12px 16px;
-            border-radius: 18px;
-            font-size: 0.95rem;
-            line-height: 1.4;
-            position: relative;
-            word-wrap: break-word;
+            max-width: 85%; padding: 10px 15px; border-radius: 18px;
+            font-size: 0.95rem; position: relative; word-wrap: break-word;
+            animation: popIn 0.2s ease;
+        }
+        .message.sent { align-self: flex-end; background-color: var(--accent); color: black; border-bottom-right-radius: 2px; }
+        .message.received { align-self: flex-start; background-color: var(--incoming); color: white; border-bottom-left-radius: 2px; }
+        
+        .meta { font-size: 0.7rem; opacity: 0.7; margin-bottom: 5px; display: block;}
+        .delete-btn {
+            position: absolute; top: -8px; right: -8px; background: #ff4444; color: white;
+            width: 20px; height: 20px; border-radius: 50%; border: none; cursor: pointer;
+            font-size: 12px; display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
 
-        .message.sent {
-            align-self: flex-end;
-            background-color: var(--accent);
-            color: #000;
-            border-bottom-right-radius: 4px;
-        }
-
-        .message.received {
-            align-self: flex-start;
-            background-color: var(--chat-bg);
-            color: #fff;
-            border-bottom-left-radius: 4px;
-        }
-
-        .system-msg {
-            align-self: center;
-            font-size: 0.75rem;
-            color: var(--text-dim);
-            margin: 10px 0;
-            text-align: center;
-        }
-
-        .meta {
-            font-size: 0.7rem;
-            margin-bottom: 4px;
-            display: block;
-            opacity: 0.7;
-        }
-
-        /* Input Area - Fixed at bottom */
+        /* --- MEDIA STYLES --- */
+        .chat-img { max-width: 100%; border-radius: 10px; margin-top: 5px; cursor: pointer;}
+        audio { height: 35px; max-width: 200px; margin-top: 5px; }
+        
+        /* --- INPUT AREA --- */
+        #typing-indicator { height: 20px; padding: 0 20px; font-size: 0.7rem; color: #888; opacity: 0; transition: opacity 0.3s; }
         #input-area {
-            padding: 15px; /* Adds safe area padding for modern phones */
-            background: var(--chat-bg);
-            border-top: 1px solid #333;
-            display: flex;
-            gap: 10px;
-            position: sticky;
-            bottom: 0;
+            padding: 10px; background: var(--chat-bg); display: flex; align-items: center; gap: 8px;
         }
-
-        #input-area input {
-            background: #121212;
-            margin: 0;
-            flex: 1;
+        #msg-input { flex: 1; background: #121212; border: none; margin: 0; }
+        .icon-btn {
+            background: none; border: none; color: var(--accent); cursor: pointer; padding: 5px;
+            display: flex; align-items: center; justify-content: center;
         }
+        .icon-btn.recording { color: #ff4444; animation: pulse 1s infinite; }
 
-        #input-area button {
-            background: var(--accent);
-            color: black;
-            border: none;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            font-weight: bold;
-            cursor: pointer;
-            flex-shrink: 0;
-        }
-
+        @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
     </style>
 </head>
 <body>
 
     <div id="setup-screen">
-        <h1>LAN Chat <span style="font-size:0.5em; color:#666"></span></h1>
-        <div class="input-group">
-            <input type="text" id="username-input" placeholder="Enter Username" maxlength="15">
-            <input type="password" id="room-key" placeholder="Enter Room Name (e.g. 'Chill')" value="">
-            <div style="font-size: 0.7rem; color: #666; text-align: center;">
-                🔒 Secure: Only people on this Wi-Fi can join this room.
-            </div>
-            <p id="status-msg" style="font-size: 0.8rem; color: #666; margin: 10px 0; font-family: monospace;">
-                Detecting Network...
-            </p>
-            <button class="btn-primary" id="join-btn" onclick="initChat()">Join Room</button>
-        </div>
+        <h1 style="color:var(--accent)">LAN Chat <span style="font-size:0.5em; color:#666">v4.0</span></h1>
+        <p id="network-status" style="color:#666; font-family:monospace; margin-bottom: 20px;">Detecting Network...</p>
+        <input type="text" id="username" placeholder="Username">
+        <input type="password" id="room-key" placeholder="Room Name (Secret)">
+        <button class="btn-primary" onclick="joinChat()">Join Securely</button>
     </div>
 
     <div id="chat-ui">
         <header>
-            <div class="header-info">
-                <div><span class="status-dot"></span><span id="display-name">Anon</span></div>
-                <div style="font-size: 0.75rem; color: #888;" id="room-display">Room: ...</div>
+            <div style="display:flex; flex-direction:column;">
+                <span id="display-name" style="font-weight:bold;">User</span>
+                <span id="room-name" style="font-size:0.7rem; color:#aaa;">Room: ...</span>
             </div>
-            <button class="btn-leave" onclick="leaveRoom()">Leave</button>
+            <button class="btn-leave" onclick="location.reload()">Leave</button>
         </header>
 
         <div id="messages"></div>
+        <div id="typing-indicator">Typing...</div>
 
         <div id="input-area">
-            <input id="msg-input" autocomplete="off" placeholder="Type..." enterkeyhint="send" />
-            <button type="button" onclick="sendMessage()">></button>
+            <input type="file" id="img-upload" hidden accept="image/*" onchange="handleImage(this)">
+            <button class="icon-btn" onclick="document.getElementById('img-upload').click()">
+                <span class="material-icons">image</span>
+            </button>
+
+            <button class="icon-btn" id="mic-btn" onmousedown="startRecording()" onmouseup="stopRecording()" ontouchstart="startRecording()" ontouchend="stopRecording()">
+                <span class="material-icons">mic</span>
+            </button>
+
+            <input id="msg-input" placeholder="Message..." autocomplete="off">
+            <button class="icon-btn" onclick="sendText()">
+                <span class="material-icons">send</span>
+            </button>
         </div>
     </div>
+
+    <audio id="notify-sound" src="https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3"></audio>
 
     <script>
         const socket = io();
         let username = 'Anon';
-        let currentRoomId = ''; 
+        let roomId = '';
+        let subnet = '';
+        let mediaRecorder;
+        let audioChunks = [];
 
-        // 1. Fetch IP and Process it (The "Subnet" Logic)
-        let networkID = 'loading...';
-        
+        // --- 1. NETWORK DETECTION ---
         fetch('https://api.ipify.org?format=json')
-            .then(response => response.json())
+            .then(res => res.json())
             .then(data => {
-                const fullIP = data.ip; // e.g., 103.45.12.89
-                
-                // LOGIC: Remove the last section of the IP
-                // This converts "103.45.12.89" -> "103.45.12"
-                const ipParts = fullIP.split('.');
-                if (ipParts.length === 4) {
-                    ipParts.pop(); // Remove the last number
-                    networkID = ipParts.join('.'); // Join back together
-                } else {
-                    networkID = fullIP; // Fallback
-                }
-                
-                console.log("Your Network Subnet:", networkID);
-                document.getElementById('status-msg').innerText = `Network Detected: ${networkID}.x`;
-                document.getElementById('status-msg').style.color = '#00e676';
-            })
-            .catch(err => {
-                console.log("IP fetch failed");
-                document.getElementById('status-msg').innerText = "Network Error: Could not detect Wi-Fi";
-                document.getElementById('status-msg').style.color = 'red';
+                const parts = data.ip.split('.');
+                parts.pop(); // Remove last octet
+                subnet = parts.join('.');
+                document.getElementById('network-status').innerText = `Network ID: ${subnet}.x`;
+                document.getElementById('network-status').style.color = '#00e676';
             });
 
-        function initChat() {
-            const userIn = document.getElementById('username-input').value.trim();
-            const roomNameIn = document.getElementById('room-key').value.trim();
-
-            if (!roomNameIn) return alert("Please enter a Room Name!");
-            if (networkID === 'loading...') return alert("Please wait, detecting network...");
+        // --- 2. JOIN LOGIC ---
+        function joinChat() {
+            const userIn = document.getElementById('username').value.trim();
+            const roomIn = document.getElementById('room-key').value.trim();
+            if (!roomIn || !subnet) return alert("Wait for network or enter room name");
 
             username = userIn || 'Anon';
-            
-            // 2. Create the Room ID based on the Subnet
-            // Everyone on the same Wifi will generate the SAME 'networkID'
-            currentRoomId = `${networkID}-${roomNameIn}`;
+            roomId = `${subnet}-${roomIn}`; // Security Lock
 
-            // Switch UI
             document.getElementById('setup-screen').style.display = 'none';
             document.getElementById('chat-ui').style.display = 'flex';
             document.getElementById('display-name').innerText = username;
-            document.getElementById('room-display').innerText = `Room: ${roomNameIn}`;
+            document.getElementById('room-name').innerText = `Room: ${roomIn}`;
 
-            // Join
-            socket.emit('join_room', { username, room: currentRoomId });
+            socket.emit('join_room', { username, room: roomId });
         }
 
-        function leaveRoom() {
-            window.location.reload();
-        }
+        // --- 3. SENDING MESSAGES ---
+        function sendPayload(content, type) {
+            const key = document.getElementById('room-key').value;
+            const uniqueId = Date.now() + Math.random().toString(16).slice(2); // Unique ID for deletion
 
-        function sendMessage() {
-            const input = document.getElementById('msg-input');
-            const plaintext = input.value.trim();
-            if (!plaintext) return;
+            // Encrypt Content
+            const encrypted = CryptoJS.AES.encrypt(content, key).toString();
 
-            // Use the room name as the encryption password
-            const key = document.getElementById('room-key').value.trim();
-            const ciphertext = CryptoJS.AES.encrypt(plaintext, key).toString();
-
-            const payload = {
-                room: currentRoomId, 
+            const data = {
+                id: uniqueId,
+                room: roomId,
                 user: username,
-                text: ciphertext,
-                timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                content: encrypted,
+                type: type, // 'text', 'image', 'audio'
+                timestamp: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
             };
 
-            socket.emit('chat_message', payload);
-            addMessageToUI(payload, 'sent', plaintext);
-            input.value = '';
-            input.focus();
+            socket.emit('chat_message', data);
+            renderMessage(data, 'sent', content); // Show locally
         }
 
-        // Receive Message
-        socket.on('chat_message', (data) => {
-            const key = document.getElementById('room-key').value.trim();
-            try {
-                const bytes = CryptoJS.AES.decrypt(data.text, key);
-                const originalText = bytes.toString(CryptoJS.enc.Utf8);
-                
-                if (originalText) {
-                    addMessageToUI(data, 'received', originalText);
-                }
-            } catch (e) { 
-                // Decryption failed silently 
+        function sendText() {
+            const input = document.getElementById('msg-input');
+            if (input.value.trim()) {
+                sendPayload(input.value.trim(), 'text');
+                input.value = '';
             }
+        }
+
+        // --- 4. IMAGE HANDLING ---
+        function handleImage(input) {
+            const file = input.files[0];
+            if (file && file.size < 5000000) { // 5MB Limit
+                const reader = new FileReader();
+                reader.onload = (e) => sendPayload(e.target.result, 'image');
+                reader.readAsDataURL(file);
+            } else { alert("Image too large (Max 5MB)"); }
+        }
+
+        // --- 5. VOICE NOTES ---
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                
+                document.getElementById('mic-btn').classList.add('recording');
+
+                mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
+                mediaRecorder.onstop = () => {
+                    document.getElementById('mic-btn').classList.remove('recording');
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' }); // webm is standard for web audio
+                    const reader = new FileReader();
+                    reader.readAsDataURL(audioBlob);
+                    reader.onloadend = () => sendPayload(reader.result, 'audio');
+                };
+
+                mediaRecorder.start();
+            } catch (err) { alert("Microphone access denied"); }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+        }
+
+        // --- 6. DELETION LOGIC ---
+        function deleteMessage(msgId) {
+            if(confirm("Delete this message for everyone?")) {
+                socket.emit('delete_message', { room: roomId, id: msgId });
+                removeMessageFromUI(msgId);
+            }
+        }
+
+        socket.on('delete_message', (id) => removeMessageFromUI(id));
+
+        function removeMessageFromUI(id) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.style.opacity = '0';
+                setTimeout(() => el.remove(), 300); // Animation
+            }
+        }
+
+        // --- 7. RECEIVING & RENDERING ---
+        socket.on('chat_message', (data) => {
+            const key = document.getElementById('room-key').value;
+            try {
+                const decrypted = CryptoJS.AES.decrypt(data.content, key).toString(CryptoJS.enc.Utf8);
+                if (decrypted) {
+                    renderMessage(data, 'received', decrypted);
+                    document.getElementById('notify-sound').play().catch(()=>{});
+                }
+            } catch (e) {}
         });
 
-        // System Messages (Join/Leave)
-        socket.on('system_message', (data) => {
-            // Check if we are alone? 
-            // The server sends "User joined". 
-            // If this message comes, it means someone successfully matched our IP logic!
-            const div = document.createElement('div');
-            div.className = 'system-msg';
-            div.innerText = data.text;
-            document.getElementById('messages').appendChild(div);
-        });
-
-        function addMessageToUI(data, type, text) {
-            const container = document.getElementById('messages');
+        function renderMessage(data, type, content) {
             const div = document.createElement('div');
             div.className = `message ${type}`;
-            div.innerHTML = `<span class="meta">${data.user}</span>${text}`;
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
+            div.id = data.id; // Assign ID for deletion
+
+            let innerHTML = `<span class="meta">${data.user} • ${data.timestamp}</span>`;
+
+            // Content Type Logic
+            if (data.type === 'text') innerHTML += `<span>${content}</span>`;
+            else if (data.type === 'image') innerHTML += `<img src="${content}" class="chat-img" onclick="window.open(this.src)">`;
+            else if (data.type === 'audio') innerHTML += `<audio controls src="${content}"></audio>`;
+
+            // Add Delete Button if it's MY message
+            if (type === 'sent') {
+                innerHTML += `<button class="delete-btn" onclick="deleteMessage('${data.id}')">×</button>`;
+            }
+
+            div.innerHTML = innerHTML;
+            document.getElementById('messages').appendChild(div);
+            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
         }
 
-        // Enter key
-        document.getElementById('msg-input').addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') sendMessage();
+        // --- 8. TYPING INDICATOR ---
+        const inputField = document.getElementById('msg-input');
+        inputField.addEventListener('input', () => socket.emit('typing', { room: roomId, user: username }));
+
+        let typingTimer;
+        socket.on('typing', (data) => {
+            const ind = document.getElementById('typing-indicator');
+            ind.innerText = `${data.user} is typing...`;
+            ind.style.opacity = 1;
+            clearTimeout(typingTimer);
+            typingTimer = setTimeout(() => ind.style.opacity = 0, 1000);
         });
+        
+        // Enter to send
+        inputField.addEventListener('keypress', (e) => { if(e.key === 'Enter') sendText() });
     </script>
 </body>
 </html>
