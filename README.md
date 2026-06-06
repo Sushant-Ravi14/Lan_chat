@@ -158,5 +158,3 @@ Sender                          Server                         Receiver
 This project is built for **educational and local use** purposes. While it uses AES encryption, production-grade security would require additional measures like TLS/SSL, key exchange protocols, and proper authentication.
 
 ---
-
-<p align="center">Made with ❤️ for privacy-first local communication</p>
